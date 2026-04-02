@@ -3,7 +3,7 @@
   "name": "vscode-git-move",
   "displayName": "Git Move",
   "description": "Uses git mv staging when moving files in the VS Code explorer, preserving git history",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "icon.png",
   "repository": {
     "type": "git",
