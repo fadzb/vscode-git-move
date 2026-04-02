@@ -1,5 +1,5 @@
 {
-  "publisher": "local",
+  "publisher": "fadzb",
   "name": "vscode-git-move",
   "displayName": "Git Move",
   "description": "Uses git mv staging when moving files in the VS Code explorer, preserving git history",
