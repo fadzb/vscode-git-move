@@ -22,9 +22,3 @@ Untracked files and non-git repos are silently skipped.
 |---|---|---|
 | `gitMove.enabled` | `true` | Enable/disable the extension without uninstalling |
 | `gitMove.showNotifications` | `false` | Show a toast notification each time a rename is staged |
-
-## Publishing to the marketplace
-
-1. Create a publisher at https://marketplace.visualstudio.com/manage
-2. Update `"publisher"` in `package.json` to your publisher ID
-3. `npm run package` then `vsce publish`
