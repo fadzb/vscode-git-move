@@ -4,6 +4,8 @@ VS Code extension that automatically stages file renames as `git mv` when you mo
 
 Works alongside VS Code's built-in "Update imports?" prompt — this extension only handles the git side.
 
+> **Note:** Set **Update Imports on File Move** to `prompt` (not `always`) in your VS Code settings. With `prompt`, VS Code shows a confirmation popup after the rename, giving this extension time to finish staging before you confirm. With `always`, VS Code applies import updates in the same event tick as the rename and the two can conflict, causing imports to not be updated.
+
 ## How it works
 
 When you move or rename a tracked file in the VS Code Explorer:

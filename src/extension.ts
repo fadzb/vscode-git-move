@@ -9,6 +9,10 @@ function git(args: string[], cwd: string) {
   return execFileAsync('git', args, { cwd });
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function isGitRepo(cwd: string): Promise<boolean> {
   try {
     await git(['rev-parse', '--git-dir'], cwd);
@@ -27,46 +31,52 @@ async function isTrackedByGit(filePath: string, cwd: string): Promise<boolean> {
   }
 }
 
+async function gitWithRetry(args: string[], cwd: string, retries = 5, delayMs = 200): Promise<void> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await git(args, cwd);
+      return;
+    } catch (err) {
+      const isLock = (err as Error).message.includes('index.lock');
+      if (!isLock || attempt === retries) {
+        throw err;
+      }
+      await sleep(delayMs * (attempt + 1));
+    }
+  }
+}
+
 async function stageRename(oldPath: string, newPath: string, cwd: string): Promise<void> {
   const isDir = fs.existsSync(newPath) && fs.statSync(newPath).isDirectory();
   const rmArgs = ['rm', '--cached', '--ignore-unmatch', ...(isDir ? ['-r'] : []), oldPath];
 
-  await git(rmArgs, cwd);
-  await git(['add', newPath], cwd);
+  await gitWithRetry(rmArgs, cwd);
+  await gitWithRetry(['add', newPath], cwd);
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const disposable = vscode.workspace.onDidRenameFiles(async (event) => {
-    const config = vscode.workspace.getConfiguration('gitMove');
-
-    if (!config.get<boolean>('enabled', true)) {
+  const disposable = vscode.workspace.onDidRenameFiles((event) => {
+    if (!vscode.workspace.getConfiguration('gitMove').get<boolean>('enabled', true)) {
       return;
     }
 
-    const showNotifications = config.get<boolean>('showNotifications', false);
+    const showNotifications = vscode.workspace
+      .getConfiguration('gitMove')
+      .get<boolean>('showNotifications', false);
 
-    for (const { oldUri, newUri } of event.files) {
-      const workspaceFolder =
-        vscode.workspace.getWorkspaceFolder(newUri) ??
-        vscode.workspace.getWorkspaceFolder(oldUri);
+    // Fire and forget — do not await. We must return synchronously so VS Code
+    // can process other onDidRenameFiles handlers (e.g. the import update popup).
+    void Promise.all(event.files.map(async ({ oldUri, newUri }) => {
+      const cwd =
+        vscode.workspace.getWorkspaceFolder(newUri)?.uri.fsPath ??
+        vscode.workspace.getWorkspaceFolder(oldUri)?.uri.fsPath;
 
-      if (!workspaceFolder) {
-        continue;
-      }
-
-      const cwd = workspaceFolder.uri.fsPath;
-
-      if (!(await isGitRepo(cwd))) {
-        continue;
-      }
+      if (!cwd || !(await isGitRepo(cwd))) { return; }
 
       const oldPath = oldUri.fsPath;
       const newPath = newUri.fsPath;
 
-      const tracked = await isTrackedByGit(oldPath, cwd).catch(() => false);
-      if (!tracked) {
-        continue;
-      }
+      if (!(await isTrackedByGit(oldPath, cwd))) { return; }
 
       try {
         await stageRename(oldPath, newPath, cwd);
@@ -82,7 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
           `git-move: failed to stage rename in git — ${(err as Error).message}`
         );
       }
-    }
+    }));
   });
 
   context.subscriptions.push(disposable);
